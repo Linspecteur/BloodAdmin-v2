@@ -18,13 +18,18 @@
 
 ## 🌟 Fonctionnalités Clés
 
-- 🎨 **Interface Premium (UI) :** Design Glassmorphic élégant en verre dépoli avec animations fluides et thèmes colorés dynamiques selon le grade.
-- 👻 **Noclip & Invisibilité :** Le staff en invisibilité devient un fantôme translucide à 20% sur son écran (100% invisible réseau pour les autres joueurs).
-- 🔒 **Sécurité Renforcée :** Toutes les actions sensibles (Ban, Kick, Teleport, Give, etc.) sont vérifiées côté serveur avec double couche de sécurité pour l'IP.
-- 📊 **Métriques Live :** Visualisation en temps réel de l'uptime, du ping moyen, du nombre de joueurs et de l'utilisation mémoire (FXServer et Node.js).
-- 💬 **Reports & Chat Staff :** Système complet de tickets d'aide (reports) en jeu et salon de discussion interne chiffré en direct pour les modérateurs.
-- 📜 **Logs Discord & SQL :** Envoi instantané vers vos webhooks Discord et enregistrement automatique de toutes les actions dans la table `bl_logs`.
-- ⚡ **Diagnostic SQL :** Commande de débogage automatique intégrée pour résoudre instantanément tout problème de permissions.
+- 🎨 **Interface Premium (UI) :** Design Glassmorphic élégant en verre dépoli avec animations fluides, angles arrondis et thèmes colorés dynamiques selon le grade.
+- 👻 **Noclip & Invisibilité Ghostly :** Transparence à 20% côté admin pour un confort visuel maximal, tout en restant **100% invisible réseau** pour les autres joueurs en jeu.
+- 👁️ **Ghost Ban (Dimension Fantôme) :** Isolez instantanément les tricheurs ou fauteurs de troubles dans une dimension parallèle (routing bucket séparé) où ils jouent totalement seuls au monde sans s'en rendre compte !
+- ⛓️ **Système de Prison (Jail) :** Envoyez les joueurs en cellule avec durée paramétrable. Gestion persistante en base SQL avec téléportation automatique et libération automatique même après reconnexion.
+- 👥 **Modération Hors-ligne (Offline) :** Interface synchronisée avec la base de données SQL pour lister, avertir (warn), bannir ou modifier les jobs/grades des joueurs déconnectés.
+- 🔒 **Sécurité Double Couche :** Toutes les actions sensibles (Ban, Kick, Teleport, Give, Revive, etc.) sont systématiquement vérifiées côté serveur pour bloquer tout exploit de tricheurs. IP sécurisée avec double vérification.
+- 🚗 **Gestion des Véhicules :** Spawnez des véhicules personnalisés, supprimez les entités proches et gérez un catalogue de véhicules directement depuis l'interface.
+- 🌍 **Contrôle du Monde & Climat :** Modifiez instantanément la météo, gelez le temps, activez le blackout général ou nettoyez la carte (véhicules abandonnés, peds, objets).
+- 📊 **Tableau de Bord & Métriques :** Graphiques et métriques en temps réel sur la consommation mémoire FXServer/Node.js, l'uptime, les reports actifs et le ping moyen.
+- 💬 **Reports & Chat Modération :** Système complet de tickets d'aide (reports) en jeu et salon de discussion interne chiffré en direct pour le staff.
+- 📜 **Logs SQL & Webhooks Discord :** Archivage persistant de chaque action dans la table `bl_logs` et notifications instantanées chiffrées sur vos salons Discord configurés.
+- ⚡ **Diagnostic & Debugger SQL :** Commande `/admin_debug` exclusive pour analyser la base de données et valider instantanément les droits d'un staff.
 
 ---
 
@@ -63,6 +68,7 @@ Pour fonctionner de manière optimale, le script nécessite :
 <div align="center">
   <p><i>Développé avec passion par <b>BloodLeak</b>. Des designs haut de gamme et des performances optimisées pour votre communauté FiveM.</i></p>
 </div>
+
 
 
 
