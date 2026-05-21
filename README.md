@@ -69,6 +69,6 @@ Pour fonctionner de manière optimale, le script nécessite :
   <p><i>Développé avec passion par <b>BloodLeak</b>. Des designs haut de gamme et des performances optimisées pour votre communauté FiveM.</i></p>
 </div>
 
-
+https://youtu.be/Q5F2gePhcI8
 
 
