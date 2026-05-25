@@ -39,11 +39,19 @@ const Notifications = {
 
         container.appendChild(toast);
         
-        // Animation Out
-        setTimeout(() => {
+        // Click to dismiss
+        let dismissed = false;
+        const dismiss = () => {
+            if (dismissed) return;
+            dismissed = true;
             toast.style.animation = 'toast-out 0.4s ease forwards';
             setTimeout(() => toast.remove(), 400);
-        }, 5000);
+        };
+
+        toast.addEventListener('click', dismiss);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(dismiss, 5000);
     }
 };
 

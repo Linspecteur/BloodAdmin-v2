@@ -601,6 +601,7 @@ select.econ-input{cursor:pointer;appearance:none}
     animation: toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     position: relative;
     padding: 10px; /* Espace de sécurité pour éviter les coins noirs */
+    cursor: pointer;
 }
 
 .toast-inner {
@@ -614,6 +615,18 @@ select.econ-input{cursor:pointer;appearance:none}
     box-shadow: 0 15px 35px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
     position: relative;
     overflow: hidden;
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toast:hover .toast-inner {
+    transform: translateY(-2px) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.toast:active .toast-inner {
+    transform: translateY(0) scale(0.98);
+    transition: transform 0.05s ease;
 }
 
 .sidebar-bottom {
