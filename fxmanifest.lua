@@ -4,7 +4,7 @@ game 'gta5'
 name        'bl_admin'
 description 'BloodAdmin — Menu admin NUI pour serveur ESX'
 author      'BloodLeak'
-version     '1.2.6'
+version     '1.5.0'
 
 -- Interface NUI
 ui_page 'html/index.html'
