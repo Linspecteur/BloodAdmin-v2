@@ -490,8 +490,37 @@ AddEventHandler('bl_admin:setStaffGrade', function(data)
             return
         end
 
-        -- Look up online player using fallbacks
-        local xPlayer = ESX.GetPlayerFromIdentifier(targetIdentifier)
+        -- Look up online player using fallbacks and robust checks
+        local targetSrc = -1
+        for _, playerId in ipairs(ESX.GetPlayers()) do
+            local player = ESX.GetPlayerFromId(playerId)
+            if player then
+                local playerIdent = ""
+                if type(player.getIdentifier) == "function" then
+                    playerIdent = player.getIdentifier() or ""
+                elseif player.identifier then
+                    playerIdent = player.identifier or ""
+                end
+                local ids = getIdentifiers(playerId)
+                
+                local cleanPlayerIdent = playerIdent:sub(1,8) == "license:" and playerIdent:sub(9) or playerIdent
+                local cleanTargetIdent = targetIdentifier:sub(1,8) == "license:" and targetIdentifier:sub(9) or targetIdentifier
+
+                if cleanPlayerIdent == cleanTargetIdent or ids.license == targetIdentifier or ids.license == prefixIdentifier or ids.license == cleanIdentifier then
+                    targetSrc = playerId
+                    break
+                end
+            end
+        end
+
+        local xPlayer = nil
+        if targetSrc ~= -1 then
+            xPlayer = ESX.GetPlayerFromId(targetSrc)
+        end
+
+        if not xPlayer then
+            xPlayer = ESX.GetPlayerFromIdentifier(targetIdentifier)
+        end
         if not xPlayer then
             xPlayer = ESX.GetPlayerFromIdentifier(cleanIdentifier)
         end
@@ -517,6 +546,7 @@ AddEventHandler('bl_admin:setStaffGrade', function(data)
         end
 
         if xPlayer then
+            local targetSource = tonumber(xPlayer.source)
             if type(xPlayer.setGroup) == "function" then
                 xPlayer.setGroup(newGrade)
             elseif type(xPlayer.set) == "function" then
@@ -524,11 +554,16 @@ AddEventHandler('bl_admin:setStaffGrade', function(data)
             end
             
             if newGrade == 'user' then
-                AdminPlayers[xPlayer.source] = nil
+                if targetSource then
+                    AdminPlayers[targetSource] = nil
+                    AdminDuty[targetSource] = nil
+                end
                 -- Force close the admin menu on the destituted player's screen
                 TriggerClientEvent('bl_admin:revokeAccess', xPlayer.source)
             else
-                AdminPlayers[xPlayer.source] = newGrade
+                if targetSource then
+                    AdminPlayers[targetSource] = newGrade
+                end
                 TriggerClientEvent('bl_admin:setGrade', xPlayer.source, newGrade, Config.Permissions[newGrade])
             end
             TriggerClientEvent('bl_admin:notify', src, 'success', "Grade mis à jour (Joueur en ligne)")

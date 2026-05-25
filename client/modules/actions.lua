@@ -498,7 +498,47 @@ AddEventHandler('bl_admin:tpToWaypoint', function()
     local waypoint = GetFirstBlipInfoId(8)
     if DoesBlipExist(waypoint) then
         local coords = GetBlipInfoIdCoord(waypoint)
-        TriggerEvent('bl_admin:doTeleport', coords.x, coords.y, coords.z)
+        local ped = PlayerPedId()
+        local vehicle = GetVehiclePedIsIn(ped, false)
+        local entity = vehicle ~= 0 and vehicle or ped
+        
+        local x, y = coords.x, coords.y
+        local groundZ = 0.0
+        local groundFound = false
+        
+        TriggerEvent('bl_admin:notify', 'info', 'Recherche du sol...')
+        FreezeEntityPosition(entity, true)
+        
+        for tempZ = 950.0, 0.0, -50.0 do
+            SetEntityCoords(entity, x, y, tempZ, false, false, false, true)
+            RequestCollisionAtCoord(x, y, tempZ)
+            Citizen.Wait(50)
+            
+            local found, z = GetGroundZFor_3dCoord(x, y, tempZ, false)
+            if found then
+                groundZ = z + 1.0
+                groundFound = true
+                break
+            end
+        end
+        
+        if not groundFound then
+            SetEntityCoords(entity, x, y, 100.0, false, false, false, true)
+            RequestCollisionAtCoord(x, y, 100.0)
+            Citizen.Wait(300)
+            local found, z = GetGroundZFor_3dCoord(x, y, 100.0, false)
+            if found then
+                groundZ = z + 1.0
+                groundFound = true
+            else
+                groundZ = 500.0
+                TriggerEvent('bl_admin:notify', 'warning', 'Sol introuvable, téléportation à 500m.')
+            end
+        end
+        
+        SetEntityCoords(entity, x, y, groundZ, false, false, false, true)
+        FreezeEntityPosition(entity, false)
+        
         SendNUIMessage({ action = 'toast', type = 'success', message = 'Téléportation au marqueur effectuée' })
     else
         TriggerEvent('bl_admin:notify', 'error', 'Aucun marqueur sur la carte')
