@@ -148,20 +148,25 @@ function addLog(category, action, adminName, adminId, targetName, targetId, deta
 end
 
 function getIdentifiers(source)
-    local ids = { steam = '', license = '', discord = '', ip = '' }
+    local ids = { steam = '', license = '', license2 = '', discord = '', ip = '', fivem = '' }
+    
+    -- Extraction robuste de l'IP depuis le point de terminaison FiveM (sans port)
+    local endpoint = GetPlayerEndpoint(source)
+    if endpoint then
+        ids.ip = endpoint:match("^([^:]+)") or endpoint
+    end
+
     for i = 0, GetNumPlayerIdentifiers(source) - 1 do
         local id = GetPlayerIdentifier(source, i)
         if id then
-            if     id:sub(1,6)  == 'steam:'   then ids.steam   = id
-            elseif id:sub(1,7)  == 'license'  then 
-                local hex = id:match("license%d*:(.+)")
-                if hex then
-                    ids.license = "license:" .. hex
-                else
-                    ids.license = id
-                end
-            elseif id:sub(1,8)  == 'discord:' then ids.discord = id
-            elseif id:sub(1,3)  == 'ip:'      then ids.ip      = id
+            if     id:sub(1,6)  == 'steam:'    then ids.steam    = id
+            elseif id:sub(1,8)  == 'license:'   then ids.license  = id
+            elseif id:sub(1,9)  == 'license2:'  then ids.license2 = id
+            elseif id:sub(1,8)  == 'discord:'  then ids.discord  = id
+            elseif id:sub(1,6)  == 'fivem:'    then ids.fivem    = id
+            elseif id:sub(1,3)  == 'ip:' and ids.ip == '' then 
+                local ipOnly = id:match("ip:(%d+%.%d+%.%d+%.%d+)")
+                ids.ip = ipOnly or id:sub(4)
             end
         end
     end
@@ -209,4 +214,34 @@ function GetSimulatedServerMetrics()
         fxMem     = string.format("%.1f", simulatedFxMem),
         nodeMem   = string.format("%.1f", simulatedNodeMem)
     }
+end
+
+function cleanMulticharIdentifier(identifier)
+    if not identifier then return nil end
+    
+    -- Strip all whitespace
+    local cleaned = string.gsub(identifier, "%s+", "")
+    
+    -- 1. Search for a 40-character hex string (Rockstar license)
+    local hex = string.match(cleaned, "(%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x)")
+    if hex then
+        return "license:" .. string.lower(hex)
+    end
+    
+    -- 2. Search for standard prefixes if it's not a Rockstar license (e.g. steam, discord, fivem, etc.)
+    local knownTypes = { "license2:", "license:", "steam:", "discord:", "live:", "xbl:", "fivem:", "ip:" }
+    for _, idType in ipairs(knownTypes) do
+        local startPos = string.find(cleaned, idType, 1, true)
+        if startPos then
+            return string.sub(cleaned, startPos)
+        end
+    end
+    
+    -- 3. Fallback for steam hex (15 characters) if it's prepended by charX:
+    local prefix, steamHex = string.match(cleaned, "^([^:]+):(%x+)$")
+    if prefix and steamHex and #steamHex == 15 then
+        return "steam:" .. string.lower(steamHex)
+    end
+    
+    return cleaned
 end

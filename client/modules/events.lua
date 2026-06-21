@@ -87,9 +87,15 @@ AddEventHandler('bl_admin:freeze', function()
     local ped = PlayerPedId()
     FreezeEntityPosition(ped, isFrozen)
     if isFrozen then
-        TriggerEvent('chat:addMessage', { args = { '^1[SYSTEM]', 'Vous avez été freeze par un administrateur.' } })
+        TriggerEvent('chat:addMessage', {
+            args = { 'Admin', 'Vous avez été freeze par un administrateur.' },
+            tags = { { label = "SYSTEME", color = "rgba(0, 230, 118, 0.1)", border = "rgba(0, 230, 118, 0.3)", textColor = "#00E676" } }
+        })
     else
-        TriggerEvent('chat:addMessage', { args = { '^1[SYSTEM]', 'Vous avez été unfreeze par un administrateur.' } })
+        TriggerEvent('chat:addMessage', {
+            args = { 'Admin', 'Vous avez été unfreeze par un administrateur.' },
+            tags = { { label = "SYSTEME", color = "rgba(0, 230, 118, 0.1)", border = "rgba(0, 230, 118, 0.3)", textColor = "#00E676" } }
+        })
     end
 end)
 
@@ -284,7 +290,10 @@ AddEventHandler('bl_admin:ghostMode', function(active)
     SetEntityVisible(ped, not active, false)
     SetEntityCollision(ped, not active, not active)
     if active then
-        TriggerEvent('chat:addMessage', { args = { '^1[SYSTEM]', 'Vous avez été GHOST BAN. Vous êtes seul dans cette dimension.' } })
+        TriggerEvent('chat:addMessage', {
+            args = { 'Ghost Ban', 'Vous avez été GHOST BAN. Vous êtes seul dans cette dimension.' },
+            tags = { { label = "SANCTION", color = "rgba(213, 0, 249, 0.1)", border = "rgba(213, 0, 249, 0.3)", textColor = "#D500F9" } }
+        })
     end
 end)
 
@@ -292,7 +301,10 @@ RegisterNetEvent('bl_admin:jail')
 AddEventHandler('bl_admin:jail', function(coords, expires)
     local ped = PlayerPedId()
     SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, true)
-    TriggerEvent('chat:addMessage', { args = { '^1[PRISON]', 'Vous avez été envoyé en prison.' } })
+    TriggerEvent('chat:addMessage', {
+        args = { 'Prison', 'Vous avez été envoyé en prison.' },
+        tags = { { label = "SANCTION", color = "rgba(213, 0, 249, 0.1)", border = "rgba(213, 0, 249, 0.3)", textColor = "#D500F9" } }
+    })
     SendNUIMessage({ action = 'showJailOverlay', expires = expires })
 end)
 

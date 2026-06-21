@@ -276,7 +276,10 @@ RegisterCommand('admin_debug', function(source)
             print('Action requise: Ajoutez la licence ' .. ids.license .. ' dans la table bl_staff.')
         end
         print('----------------------------')
-        TriggerClientEvent('chat:addMessage', src, { args = { '^1[DEBUG]', 'Regarde ta console SERVEUR pour les détails.' } })
+        TriggerClientEvent('chat:addMessage', src, { 
+            args = { 'DEBUG', 'Regarde ta console SERVEUR pour les détails.' },
+            tags = { { label = "DEBUG", color = "rgba(100, 116, 139, 0.1)", border = "rgba(100, 116, 139, 0.3)", textColor = "#64748B" } }
+        })
     end)
 end)
 
@@ -290,21 +293,21 @@ AddEventHandler('bl_admin:toggleService', function(data)
     AdminDuty[src] = active
 
     if active then
-        TriggerClientEvent('chat:addMessage', -1, { 
-            args = { '^1[STAFF]', '^7' .. name .. ' est désormais ^2EN SERVICE^7.' } 
-        })
-        -- Notify all staff via toast
         for adminSrc, _ in pairs(AdminPlayers) do
+            TriggerClientEvent('chat:addMessage', adminSrc, { 
+                args = { name, 'est désormais EN SERVICE.' },
+                tags = { { label = "STAFF", color = "rgba(220, 38, 38, 0.1)", border = "rgba(220, 38, 38, 0.3)", textColor = "#DC2626" } }
+            })
             TriggerClientEvent('bl_admin:notify', adminSrc, 'success', '<b>' .. name .. '</b> est désormais EN SERVICE.')
         end
         addLog('staff', 'PRISE_SERVICE', name, src, 'Système', '0', 'Le staff a pris son service.')
     else
         TriggerClientEvent('bl_admin:disableAllTools', src)
-        TriggerClientEvent('chat:addMessage', -1, { 
-            args = { '^1[STAFF]', '^7' .. name .. ' n\'est plus ^1EN SERVICE^7.' } 
-        })
-        -- Notify all staff via toast
         for adminSrc, _ in pairs(AdminPlayers) do
+            TriggerClientEvent('chat:addMessage', adminSrc, { 
+                args = { name, 'a quitté son service.' },
+                tags = { { label = "STAFF", color = "rgba(220, 38, 38, 0.1)", border = "rgba(220, 38, 38, 0.3)", textColor = "#DC2626" } }
+            })
             TriggerClientEvent('bl_admin:notify', adminSrc, 'error', '<b>' .. name .. '</b> a quitté son service.')
         end
         addLog('staff', 'FIN_SERVICE', name, src, 'Système', '0', 'Le staff a quitté son service.')
@@ -335,7 +338,7 @@ end
 function RefreshAllStaffList()
     if not MySQL then return end
 
-    local query = "SELECT s.identifier, s.grade, u.firstname, u.lastname FROM bl_staff s LEFT JOIN users u ON s.identifier = u.identifier"
+    local query = "SELECT s.identifier, s.grade, MAX(u.firstname) as firstname, MAX(u.lastname) as lastname FROM bl_staff s LEFT JOIN users u ON u.identifier = s.identifier OR u.identifier LIKE CONCAT('%', s.identifier) GROUP BY s.identifier, s.grade"
     
     MySQL.query(query, {}, function(results)
         local staff = {}
@@ -534,7 +537,7 @@ AddEventHandler('bl_admin:setStaffGrade', function(data)
                 MySQL.query("DELETE FROM bl_staff WHERE identifier = ? OR identifier = ? OR identifier = ?", {targetIdentifier, cleanIdentifier, prefixIdentifier}, function()
                     -- ALSO force-update users table so ESX group is persisted as 'user'
                     -- This prevents re-entry via xPlayer.getGroup() returning old grade on reconnect
-                    MySQL.update("UPDATE users SET `group` = 'user' WHERE identifier = ? OR identifier = ? OR identifier = ?", {targetIdentifier, cleanIdentifier, prefixIdentifier}, function()
+                    MySQL.update("UPDATE users SET `group` = 'user' WHERE identifier LIKE ?", {'%' .. cleanIdentifier}, function()
                         RefreshAllStaffList()
                     end)
                 end)
@@ -575,7 +578,7 @@ AddEventHandler('bl_admin:setStaffGrade', function(data)
                 return
             end
             -- Player is offline: update users table supporting both license format variants
-            MySQL.update("UPDATE users SET `group` = ? WHERE identifier = ? OR identifier = ? OR identifier = ?", {newGrade, targetIdentifier, cleanIdentifier, prefixIdentifier}, function(rowsChanged)
+            MySQL.update("UPDATE users SET `group` = ? WHERE identifier LIKE ?", {newGrade, '%' .. cleanIdentifier}, function(rowsChanged)
                 if rowsChanged > 0 then
                     TriggerClientEvent('bl_admin:notify', src, 'success', "Grade mis à jour dans la base (Joueur hors-ligne)")
                     updateStaffDatabase()

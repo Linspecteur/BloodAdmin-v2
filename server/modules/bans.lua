@@ -19,7 +19,9 @@ function loadBans()
                     identifiers = {
                         license = row.license,
                         steam   = row.identifier,
-                        ip      = row.ip
+                        ip      = row.ip,
+                        fivem   = row.fivem or '',
+                        discord = row.discord or ''
                     },
                     name        = row.name,
                     reason      = row.reason,
@@ -52,13 +54,47 @@ end
 Citizen.CreateThread(function()
     Wait(1000)
     if MySQL then
-        -- Ensure bl_warns has name field
-        MySQL.query([[
-            ALTER TABLE `bl_warns` ADD COLUMN IF NOT EXISTS `player_name` VARCHAR(100) DEFAULT 'Inconnu';
-        ]])
-
-        loadBans()
-        loadWarns()
+        -- Check if bl_warns has player_name column
+        MySQL.query("SHOW COLUMNS FROM `bl_warns` LIKE 'player_name'", {}, function(cols1)
+            local hasPlayerName = cols1 and #cols1 > 0
+            
+            local function checkFivem()
+                -- Check if bl_bans has fivem column
+                MySQL.query("SHOW COLUMNS FROM `bl_bans` LIKE 'fivem'", {}, function(cols2)
+                    local hasFivem = cols2 and #cols2 > 0
+                    
+                    local function checkDiscord()
+                        -- Check if bl_bans has discord column
+                        MySQL.query("SHOW COLUMNS FROM `bl_bans` LIKE 'discord'", {}, function(cols3)
+                            local hasDiscord = cols3 and #cols3 > 0
+                            
+                            local function finishInit()
+                                loadBans()
+                                loadWarns()
+                            end
+                            
+                            if not hasDiscord then
+                                MySQL.update("ALTER TABLE `bl_bans` ADD COLUMN `discord` VARCHAR(100) DEFAULT ''", {}, finishInit)
+                            else
+                                finishInit()
+                            end
+                        end)
+                    end
+                    
+                    if not hasFivem then
+                        MySQL.update("ALTER TABLE `bl_bans` ADD COLUMN `fivem` VARCHAR(100) DEFAULT ''", {}, checkDiscord)
+                    else
+                        checkDiscord()
+                    end
+                end)
+            end
+            
+            if not hasPlayerName then
+                MySQL.update("ALTER TABLE `bl_warns` ADD COLUMN `player_name` VARCHAR(100) DEFAULT 'Inconnu'", {}, checkFivem)
+            else
+                checkFivem()
+            end
+        end)
     end
 end)
 
@@ -75,9 +111,16 @@ AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
     for i = #BanList, 1, -1 do
         local ban = BanList[i]
         local match = false
-        if ban.identifiers.license ~= '' and (ban.identifiers.license == ids.license or ban.identifiers.license == ids.steam) then match = true end
-        if ban.identifiers.steam   ~= '' and (ban.identifiers.steam   == ids.steam   or ban.identifiers.steam   == ids.license) then match = true end
+        local banLicense = cleanMulticharIdentifier(ban.identifiers.license)
+        local banSteam = cleanMulticharIdentifier(ban.identifiers.steam)
+        local banFivem = ban.identifiers.fivem
+        local banDiscord = ban.identifiers.discord
+
+        if banLicense ~= '' and (banLicense == ids.license or banLicense == ids.license2 or banLicense == ids.steam) then match = true end
+        if banSteam   ~= '' and (banSteam   == ids.steam   or banSteam   == ids.license or banSteam == ids.license2) then match = true end
         if ban.identifiers.ip      ~= '' and ban.identifiers.ip      == ids.ip      then match = true end
+        if banFivem   ~= '' and banFivem   == ids.fivem   then match = true end
+        if banDiscord ~= '' and banDiscord == ids.discord then match = true end
 
         if match then
             if ban.expires == 0 or ban.expires > now then
@@ -117,8 +160,8 @@ AddEventHandler('bl_admin:banPlayer', function(targetId, reason, durationSeconds
     if durationSeconds and durationSeconds > 0 then expires = os.time() + durationSeconds end
 
     -- Insert into DB
-    MySQL.insert('INSERT INTO bl_bans (identifier, license, ip, name, reason, admin, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)', {
-        ids.steam, ids.license, ids.ip, targetName, reason, adminName, expires
+    MySQL.insert('INSERT INTO bl_bans (identifier, license, ip, fivem, discord, name, reason, admin, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', {
+        ids.steam, ids.license, ids.ip, ids.fivem, ids.discord, targetName, reason, adminName, expires
     }, function(id)
         if loadBans then
             loadBans()
@@ -205,7 +248,7 @@ AddEventHandler('bl_admin:banOfflinePlayer', function(data)
     local src = source
     if not checkPermission(src, 'bl.ban') or not checkPermission(src, 'bl.offlinemod') then return end
 
-    local targetIdentifier = data.identifier
+    local targetIdentifier = cleanMulticharIdentifier(data.identifier)
     local playerName = data.playerName or 'Joueur Hors-ligne'
     local reason = data.reason or 'Aucun motif'
     local durationSeconds = tonumber(data.duration) or 0
@@ -214,39 +257,55 @@ AddEventHandler('bl_admin:banOfflinePlayer', function(data)
     local expires = 0
     if durationSeconds and durationSeconds > 0 then expires = os.time() + durationSeconds end
 
-    local ids = { steam = '', license = '', ip = '' }
-    if string.sub(targetIdentifier, 1, 8) == 'license:' then
-        ids.license = targetIdentifier
-    elseif string.sub(targetIdentifier, 1, 6) == 'steam:' then
-        ids.steam = targetIdentifier
-    else
-        ids.steam = targetIdentifier
-        ids.license = targetIdentifier
-    end
-
-    -- Insert into DB
-    MySQL.insert('INSERT INTO bl_bans (identifier, license, ip, name, reason, admin, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)', {
-        ids.steam, ids.license, '', playerName, reason, adminName, expires
-    }, function(id)
-        if loadBans then
-            loadBans()
-            Wait(100)
-            for adminSrc, _ in pairs(AdminPlayers) do
-                TriggerClientEvent('bl_admin:updateBans', adminSrc, BanList)
-            end
-        else
-            table.insert(BanList, {
-                id          = id or 999,
-                identifiers = ids,
-                name        = playerName,
-                reason      = reason,
-                admin       = adminName,
-                expires     = expires
-            })
-            for adminSrc, _ in pairs(AdminPlayers) do
-                TriggerClientEvent('bl_admin:updateBans', adminSrc, BanList)
+    MySQL.query("SELECT * FROM bl_players_seen WHERE identifier = ?", {targetIdentifier}, function(seenRes)
+        local ids = { steam = '', license = targetIdentifier, ip = '', fivem = '', discord = '' }
+        if seenRes and seenRes[1] then
+            ids.steam = seenRes[1].steam or ''
+            ids.ip = seenRes[1].ip or ''
+            ids.fivem = seenRes[1].fivem or ''
+            ids.discord = seenRes[1].discord or ''
+        end
+        
+        -- Fallback if no matching player was previously recorded
+        if ids.steam == '' and ids.fivem == '' and ids.discord == '' then
+            if string.sub(targetIdentifier, 1, 8) == 'license:' then
+                ids.license = targetIdentifier
+            elseif string.sub(targetIdentifier, 1, 6) == 'steam:' then
+                ids.steam = targetIdentifier
+            elseif string.sub(targetIdentifier, 1, 6) == 'fivem:' then
+                ids.fivem = targetIdentifier
+            elseif string.sub(targetIdentifier, 1, 8) == 'discord:' then
+                ids.discord = targetIdentifier
+            else
+                ids.steam = targetIdentifier
+                ids.license = targetIdentifier
             end
         end
+
+        -- Insert into DB
+        MySQL.insert('INSERT INTO bl_bans (identifier, license, ip, fivem, discord, name, reason, admin, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', {
+            ids.steam, ids.license, ids.ip, ids.fivem, ids.discord, playerName, reason, adminName, expires
+        }, function(id)
+            if loadBans then
+                loadBans()
+                Wait(100)
+                for adminSrc, _ in pairs(AdminPlayers) do
+                    TriggerClientEvent('bl_admin:updateBans', adminSrc, BanList)
+                end
+            else
+                table.insert(BanList, {
+                    id          = id or 999,
+                    identifiers = ids,
+                    name        = playerName,
+                    reason      = reason,
+                    admin       = adminName,
+                    expires     = expires
+                })
+                for adminSrc, _ in pairs(AdminPlayers) do
+                    TriggerClientEvent('bl_admin:updateBans', adminSrc, BanList)
+                end
+            end
+        end)
     end)
 
     addLog('moderation', 'OFFLINE_BAN', adminName, src, playerName, 'OFFLINE', reason)

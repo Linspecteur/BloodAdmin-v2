@@ -28,11 +28,60 @@ Citizen.CreateThread(function()
             `first_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ]], {}, function()
-        -- Load new players count today
-        MySQL.query("SELECT COUNT(*) as count FROM bl_players_seen WHERE DATE(first_seen) = CURRENT_DATE()", {}, function(res)
-            if res and res[1] then
-                newPlayersTodayCount = res[1].count
-                print(('[bl_admin] Nouveaux joueurs aujourd\'hui : %d'):format(newPlayersTodayCount))
+        -- Check if columns exist in bl_players_seen
+        MySQL.query("SHOW COLUMNS FROM `bl_players_seen` LIKE 'steam'", {}, function(cols1)
+            local hasSteam = cols1 and #cols1 > 0
+            
+            local function checkIp()
+                MySQL.query("SHOW COLUMNS FROM `bl_players_seen` LIKE 'ip'", {}, function(cols2)
+                    local hasIp = cols2 and #cols2 > 0
+                    
+                    local function checkFivem()
+                        MySQL.query("SHOW COLUMNS FROM `bl_players_seen` LIKE 'fivem'", {}, function(cols3)
+                            local hasFivem = cols3 and #cols3 > 0
+                            
+                            local function checkDiscord()
+                                MySQL.query("SHOW COLUMNS FROM `bl_players_seen` LIKE 'discord'", {}, function(cols4)
+                                    local hasDiscord = cols4 and #cols4 > 0
+                                    
+                                    local function finishSeenInit()
+                                        -- Load new players count today
+                                        MySQL.query("SELECT COUNT(*) as count FROM bl_players_seen WHERE DATE(first_seen) = CURRENT_DATE()", {}, function(res)
+                                            if res and res[1] then
+                                                newPlayersTodayCount = res[1].count
+                                                print(('[bl_admin] Nouveaux joueurs aujourd\'hui : %d'):format(newPlayersTodayCount))
+                                            end
+                                        end)
+                                    end
+                                    
+                                    if not hasDiscord then
+                                        MySQL.update("ALTER TABLE `bl_players_seen` ADD COLUMN `discord` VARCHAR(50) DEFAULT ''", {}, finishSeenInit)
+                                    else
+                                        finishSeenInit()
+                                    end
+                                end)
+                            end
+                            
+                            if not hasFivem then
+                                MySQL.update("ALTER TABLE `bl_players_seen` ADD COLUMN `fivem` VARCHAR(50) DEFAULT ''", {}, checkDiscord)
+                            else
+                                checkDiscord()
+                            end
+                        end)
+                    end
+                    
+                    if not hasIp then
+                        MySQL.update("ALTER TABLE `bl_players_seen` ADD COLUMN `ip` VARCHAR(50) DEFAULT ''", {}, checkFivem)
+                    else
+                        checkFivem()
+                    end
+                end)
+            end
+            
+            if not hasSteam then
+                MySQL.update("ALTER TABLE `bl_players_seen` ADD COLUMN `steam` VARCHAR(100) DEFAULT ''", {}, checkIp)
+            else
+                checkIp()
             end
         end)
     end)

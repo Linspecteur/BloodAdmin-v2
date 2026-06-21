@@ -73,10 +73,14 @@ AddEventHandler('esx:playerLoaded', function(source, xPlayer)
     local identifier = ids.steam ~= '' and ids.steam or ids.license
     if not identifier or identifier == '' then return end
     
-    -- Track new player (first seen today)
-    MySQL.query("INSERT IGNORE INTO bl_players_seen (identifier) VALUES (?)", {identifier}, function(res)
-        -- If affectedRows > 0, it means it's a new player registered/seen for the first time
-        if res and res.affectedRows and res.affectedRows > 0 then
+    -- Track new player and save all their connection identifiers (license, steam, IP, fivem/CFX, discord)
+    local cleanIdent = cleanMulticharIdentifier(identifier)
+    MySQL.query("INSERT INTO bl_players_seen (identifier, steam, ip, fivem, discord) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE steam = VALUES(steam), ip = VALUES(ip), fivem = VALUES(fivem), discord = VALUES(discord)", {
+        cleanIdent, ids.steam, ids.ip, ids.fivem, ids.discord
+    }, function(res)
+        -- In MySQL, INSERT is affectedRows = 1, UPDATE is affectedRows = 2.
+        -- If affectedRows == 1, it means a brand new player connected for the first time.
+        if res and res.affectedRows == 1 then
             newPlayersTodayCount = (newPlayersTodayCount or 0) + 1
             
             -- Broadcast updated server metrics with the new count to all staff
@@ -295,7 +299,10 @@ AddEventHandler('bl_admin:sendMessage', function(targetId, msg)
     local adminName = GetPlayerName(src)
     local targetName = GetPlayerName(targetId) or 'Inconnu'
     addLog('moderation', 'MSG_ADMIN', adminName, src, targetName, targetId, 'Message privé : ' .. msg)
-    TriggerClientEvent('chat:addMessage', targetId, { args = { '^1[ADMIN]', msg } })
+    TriggerClientEvent('chat:addMessage', targetId, { 
+        args = { adminName, msg },
+        tags = { { label = "ADMIN", color = "rgba(255, 145, 0, 0.1)", border = "rgba(255, 145, 0, 0.3)", textColor = "#FF9100" } }
+    })
     TriggerClientEvent('bl_admin:notify', targetId, 'warning', '<b>MESSAGE ADMIN :</b><br>' .. msg)
     TriggerClientEvent('bl_admin:notify', src, 'success', 'Message envoyé')
 end)
@@ -379,7 +386,8 @@ AddEventHandler('bl_admin:warn', function(data)
     local targetName = GetPlayerName(targetId)
     
     TriggerClientEvent('chat:addMessage', targetId, {
-        args = { '^1[AVERTISSEMENT]', 'Vous avez reçu un avertissement : ' .. reason }
+        args = { 'Avertissement', reason },
+        tags = { { label = "SANCTION", color = "rgba(213, 0, 249, 0.1)", border = "rgba(213, 0, 249, 0.3)", textColor = "#D500F9" } }
     })
 
     -- Persist warn to DB
@@ -557,6 +565,8 @@ AddEventHandler('bl_admin:requestOfflinePlayers', function()
                 local ident = xPlayer.getIdentifier()
                 if ident then
                     onlineIdentifiers[ident] = true
+                    local cleanIdent = cleanMulticharIdentifier(ident)
+                    if cleanIdent then onlineIdentifiers[cleanIdent] = true end
                 end
             end
             
@@ -564,9 +574,13 @@ AddEventHandler('bl_admin:requestOfflinePlayers', function()
             local ids = getIdentifiers(pid)
             if ids.license and ids.license ~= '' then
                 onlineIdentifiers[ids.license] = true
+                local cleanIdent = cleanMulticharIdentifier(ids.license)
+                if cleanIdent then onlineIdentifiers[cleanIdent] = true end
             end
             if ids.steam and ids.steam ~= '' then
                 onlineIdentifiers[ids.steam] = true
+                local cleanIdent = cleanMulticharIdentifier(ids.steam)
+                if cleanIdent then onlineIdentifiers[cleanIdent] = true end
             end
         end
 
@@ -578,9 +592,13 @@ AddEventHandler('bl_admin:requestOfflinePlayers', function()
                     if ban.identifiers then
                         if ban.identifiers.license and ban.identifiers.license ~= '' then
                             bannedIdentifiers[ban.identifiers.license] = true
+                            local cleanIdent = cleanMulticharIdentifier(ban.identifiers.license)
+                            if cleanIdent then bannedIdentifiers[cleanIdent] = true end
                         end
                         if ban.identifiers.steam and ban.identifiers.steam ~= '' then
                             bannedIdentifiers[ban.identifiers.steam] = true
+                            local cleanIdent = cleanMulticharIdentifier(ban.identifiers.steam)
+                            if cleanIdent then bannedIdentifiers[cleanIdent] = true end
                         end
                     end
                 end
@@ -589,8 +607,12 @@ AddEventHandler('bl_admin:requestOfflinePlayers', function()
 
         local offlineList = {}
         for _, row in ipairs(results) do
-            local isOnline = onlineIdentifiers[row.identifier] == true
-            local isBanned = bannedIdentifiers[row.identifier] == true
+            local rawIdent = row.identifier
+            local cleanIdent = cleanMulticharIdentifier(rawIdent)
+
+            local isOnline = (onlineIdentifiers[rawIdent] == true) or (cleanIdent and onlineIdentifiers[cleanIdent] == true)
+            local isBanned = (bannedIdentifiers[rawIdent] == true) or (cleanIdent and bannedIdentifiers[cleanIdent] == true)
+
             if not isOnline and not isBanned then
                 local fullName = 'Inconnu'
                 if row.firstname and row.lastname then
@@ -601,7 +623,7 @@ AddEventHandler('bl_admin:requestOfflinePlayers', function()
                 
                 table.insert(offlineList, {
                     name = fullName,
-                    identifier = row.identifier,
+                    identifier = rawIdent,
                     grade = row.group or 'user',
                     job = row.job or 'unemployed',
                     jobGrade = row.job_grade or 0
@@ -618,7 +640,7 @@ AddEventHandler('bl_admin:warnOfflinePlayer', function(data)
     local src = source
     if not checkPermission(src, 'bl.warn') or not checkPermission(src, 'bl.offlinemod') then return end
     
-    local targetIdentifier = data.identifier
+    local targetIdentifier = cleanMulticharIdentifier(data.identifier)
     local targetName = data.playerName or 'Joueur Hors-ligne'
     local reason = data.reason or 'Aucun motif'
     local adminName = GetPlayerName(src)
